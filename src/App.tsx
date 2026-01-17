@@ -134,7 +134,7 @@ function App() {
           Modal.success({ content: '✅ Mahsulot o\'chirildi!' })
           fetchProducts()
         } catch (err) {
-          Modal.error({ content: '❌ O\'chirishda xatolik' })
+          Modal.error({ content: ' O\'chirishda xatolik' })
         }
       }
     })
@@ -155,7 +155,7 @@ function App() {
   return (
     <Layout style={{ minHeight: '100vh', background: '#f0f2f5' }}>
       <Content style={{ padding: '24px', maxWidth: 900, margin: '0 auto', width: '100%' }}>
-        {/* Header */}
+     
         <div style={{ textAlign: 'center', marginBottom: 32 }}>
           <Title level={2} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
             <img 
@@ -168,7 +168,7 @@ function App() {
           <Text type="secondary">Jami {products.length} ta mahsulot</Text>
         </div>
 
-        {/* Toolbar */}
+     
         <Space direction="vertical" size="middle" style={{ width: '100%', marginBottom: 24 }}>
           <Space.Compact style={{ width: '100%' }}>
             <Input
