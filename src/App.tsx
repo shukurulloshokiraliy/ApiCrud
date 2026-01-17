@@ -1,7 +1,31 @@
 import { useState, useEffect } from 'react'
-import './App.css'
+import {
+  Layout,
+  Typography,
+  Input,
+  Button,
+  List,
+  Modal,
+  Form,
+  InputNumber,
+  Tag,
+  Space,
+  Alert,
+  Spin,
+  Empty,
+} from 'antd'
+import {
+  PlusOutlined,
+  SearchOutlined,
+  EditOutlined,
+  DeleteOutlined,
+  CloseCircleOutlined,
+} from '@ant-design/icons'
 import { api } from './api'
 import type { Product } from './types/products'
+
+const { Content } = Layout
+const { Title, Text } = Typography
 
 interface ProductFormData {
   title: string
@@ -18,15 +42,8 @@ function App() {
   const [searchQuery, setSearchQuery] = useState<string>('')
   const [showModal, setShowModal] = useState<boolean>(false)
   const [editingProduct, setEditingProduct] = useState<Product | null>(null)
-  const [formData, setFormData] = useState<ProductFormData>({
-    title: '',
-    description: '',
-    price: 0,
-    category: '',
-    stock: 0,
-  })
+  const [form] = Form.useForm()
 
-  // Mahsulotlarni yuklash
   useEffect(() => {
     fetchProducts()
   }, [])
@@ -39,15 +56,12 @@ function App() {
       setProducts(data.docs)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Xatolik yuz berdi')
-      console.error('Ma\'lumot yuklashda xatolik:', err)
     } finally {
       setLoading(false)
     }
   }
 
-  // Qidiruv
-  const handleSearch = async (e: React.FormEvent) => {
-    e.preventDefault()
+  const handleSearch = async () => {
     if (!searchQuery.trim()) {
       fetchProducts()
       return
@@ -55,7 +69,6 @@ function App() {
 
     try {
       setLoading(true)
-      setError(null)
       const data = await api.searchProducts(searchQuery)
       setProducts(data.docs)
     } catch (err) {
@@ -65,23 +78,15 @@ function App() {
     }
   }
 
-  // Modal ochish (yangi mahsulot)
   const openCreateModal = () => {
     setEditingProduct(null)
-    setFormData({
-      title: '',
-      description: '',
-      price: 0,
-      category: '',
-      stock: 0,
-    })
+    form.resetFields()
     setShowModal(true)
   }
 
-  // Modal ochish (tahrirlash)
   const openEditModal = (product: Product) => {
     setEditingProduct(product)
-    setFormData({
+    form.setFieldsValue({
       title: product.title,
       description: product.description || '',
       price: product.price,
@@ -91,314 +96,270 @@ function App() {
     setShowModal(true)
   }
 
-  // Modal yopish
   const closeModal = () => {
     setShowModal(false)
     setEditingProduct(null)
-    setFormData({
-      title: '',
-      description: '',
-      price: 0,
-      category: '',
-      stock: 0,
-    })
+    form.resetFields()
   }
 
-  // Form submit
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    
+  const handleSubmit = async (values: ProductFormData) => {
     try {
       if (editingProduct) {
-        // Update
-        await api.updateProduct(editingProduct.id, formData)
-        alert('✅ Mahsulot yangilandi!')
+        await api.updateProduct(editingProduct.id, values)
+        Modal.success({ content: '✅ Mahsulot yangilandi!' })
       } else {
-        // Create
-        await api.createProduct(formData)
-        alert('✅ Mahsulot qo\'shildi!')
+        await api.createProduct(values)
+        Modal.success({ content: '✅ Mahsulot qo\'shildi!' })
       }
       
       closeModal()
       fetchProducts()
     } catch (err) {
-      alert('❌ Xatolik: ' + (err instanceof Error ? err.message : 'Noma\'lum xatolik'))
+      Modal.error({ 
+        content: '❌ Xatolik: ' + (err instanceof Error ? err.message : 'Noma\'lum xatolik')
+      })
     }
   }
 
-  // Delete
   const handleDelete = async (id: string, title: string) => {
-    if (!confirm(`"${title}" mahsulotini o'chirmoqchimisiz?`)) {
-      return
-    }
-
-    try {
-      await api.deleteProduct(id)
-      alert('✅ Mahsulot o\'chirildi!')
-      fetchProducts()
-    } catch (err) {
-      alert('❌ O\'chirishda xatolik: ' + (err instanceof Error ? err.message : 'Noma\'lum xatolik'))
-    }
+    Modal.confirm({
+      title: 'O\'chirish',
+      content: `"${title}" mahsulotini o'chirmoqchimisiz?`,
+      okText: 'Ha',
+      cancelText: 'Yo\'q',
+      okType: 'danger',
+      onOk: async () => {
+        try {
+          await api.deleteProduct(id)
+          Modal.success({ content: '✅ Mahsulot o\'chirildi!' })
+          fetchProducts()
+        } catch (err) {
+          Modal.error({ content: '❌ O\'chirishda xatolik' })
+        }
+      }
+    })
   }
 
-  // Narx formatlash
   const formatPrice = (price: number) => {
-    return new Intl.NumberFormat('uz-UZ', {
-      minimumFractionDigits: 0,
-    }).format(price) + ' so\'m'
+    return new Intl.NumberFormat('uz-UZ').format(price) + ' so\'m'
   }
 
-  // Loading holati
   if (loading && products.length === 0) {
     return (
-      <div className="app">
-        <div className="loading-container">
-          <div className="loader">⏳</div>
-          <h2>Mahsulotlar yuklanmoqda...</h2>
-        </div>
-      </div>
+      <Layout style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <Spin size="large" tip="Yuklanmoqda..." />
+      </Layout>
     )
   }
 
   return (
-    <div className="app">
-      <header className="header">
-        <div className="header-content">
-          <h1>🛍️ Mahsulotlar boshqaruvi</h1>
-          <p className="subtitle">Jami {products.length} ta mahsulot</p>
+    <Layout style={{ minHeight: '100vh', background: '#f0f2f5' }}>
+      <Content style={{ padding: '24px', maxWidth: 900, margin: '0 auto', width: '100%' }}>
+        {/* Header */}
+        <div style={{ textAlign: 'center', marginBottom: 32 }}>
+          <Title level={2} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
+            <img 
+              src="https://cdn1.iconfinder.com/data/icons/shopping-and-commerce-round/128/18-512.png" 
+              alt="Shopping icon"
+              style={{ width: 40, height: 40 }}
+            />
+            Mahsulotlar
+          </Title>
+          <Text type="secondary">Jami {products.length} ta mahsulot</Text>
         </div>
 
-        <div className="header-actions">
-          {/* Qidiruv */}
-          <form onSubmit={handleSearch} className="search-form">
-            <div className="search-wrapper">
-              <input
-                type="text"
-                placeholder="Mahsulot nomi bo'yicha qidiring..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="search-input"
-              />
-              <button type="submit" className="search-btn">
-                🔍
-              </button>
-            </div>
-            {searchQuery && (
-              <button
-                type="button"
-                onClick={() => {
-                  setSearchQuery('')
-                  fetchProducts()
-                }}
-                className="clear-btn"
-              >
-                ✕ Tozalash
-              </button>
-            )}
-          </form>
-
-          {/* Yangi mahsulot qo'shish */}
-          <button onClick={openCreateModal} className="add-btn">
-            ➕ Yangi mahsulot
-          </button>
-        </div>
-      </header>
-
-      {/* Error */}
-      {error && (
-        <div className="error-container">
-          <p>❌ {error}</p>
-          <button onClick={fetchProducts} className="retry-btn">
-            🔄 Qayta urinish
-          </button>
-        </div>
-      )}
-
-      {/* Mahsulotlar */}
-      <div className="products-grid">
-        {products.length === 0 ? (
-          <div className="no-products">
-            <div className="empty-icon">📦</div>
-            <h3>Hech qanday mahsulot topilmadi</h3>
-            {searchQuery ? (
-              <button onClick={fetchProducts} className="retry-btn">
-                Barcha mahsulotlarni ko'rsatish
-              </button>
-            ) : (
-              <button onClick={openCreateModal} className="retry-btn">
-                Birinchi mahsulotni qo'shing
-              </button>
-            )}
-          </div>
-        ) : (
-          products.map((product) => (
-            <div key={product.id} className="product-card">
-              {/* Rasm */}
-              <div className="product-image">
-                {product.image?.url ? (
-                  <img
-                    src={`https://payload-api-2.onrender.com${product.image.url}`}
-                    alt={product.image.alt || product.title}
-                    loading="lazy"
+        {/* Toolbar */}
+        <Space direction="vertical" size="middle" style={{ width: '100%', marginBottom: 24 }}>
+          <Space.Compact style={{ width: '100%' }}>
+            <Input
+              placeholder="Qidirish..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              onPressEnter={handleSearch}
+              prefix={<SearchOutlined />}
+              aria-label="Mahsulot qidirish"
+              suffix={
+                searchQuery && (
+                  <CloseCircleOutlined
+                    onClick={() => {
+                      setSearchQuery('')
+                      fetchProducts()
+                    }}
+                    style={{ cursor: 'pointer', color: '#999' }}
+                    aria-label="Qidiruvni tozalash"
                   />
-                ) : (
-                  <div className="no-image">
-                    <span>🖼️</span>
-                    <p>Rasm yo'q</p>
-                  </div>
-                )}
-              </div>
+                )
+              }
+            />
+            <Button type="primary" onClick={handleSearch}>
+              Qidirish
+            </Button>
+          </Space.Compact>
 
-              {/* Ma'lumotlar */}
-              <div className="product-info">
-                <h2 className="product-title">{product.title}</h2>
+          <Button
+            type="primary"
+            icon={<PlusOutlined />}
+            onClick={openCreateModal}
+            style={{ width: 'auto' }}
+          >
+            Yangi mahsulot
+          </Button>
+        </Space>
 
-                {product.description && (
-                  <p className="product-description">
-                    {product.description.length > 80
-                      ? `${product.description.substring(0, 80)}...`
-                      : product.description}
-                  </p>
-                )}
-
-                <div className="product-details">
-                  {product.category && (
-                    <span className="category-badge">
-                      {product.category}
-                    </span>
-                  )}
-
-                  <div className="product-price">
-                    {formatPrice(product.price)}
-                  </div>
-
-                  {product.stock !== undefined && (
-                    <div className="stock-info">
-                      {product.stock > 0 ? (
-                        <span className="in-stock">
-                          ✅ {product.stock} ta
-                        </span>
-                      ) : (
-                        <span className="out-of-stock">❌ Tugagan</span>
-                      )}
-                    </div>
-                  )}
-                </div>
-
-                {/* CRUD tugmalari */}
-                <div className="card-actions">
-                  <button 
-                    onClick={() => openEditModal(product)}
-                    className="edit-btn"
-                    title="Tahrirlash"
-                  >
-                    ✏️
-                  </button>
-                  <button 
-                    onClick={() => handleDelete(product.id, product.title)}
-                    className="delete-btn"
-                    title="O'chirish"
-                  >
-                    🗑️
-                  </button>
-                </div>
-              </div>
-            </div>
-          ))
+     
+        {error && (
+          <Alert
+            message={error}
+            type="error"
+            closable
+            style={{ marginBottom: 24 }}
+            action={
+              <Button size="small" onClick={fetchProducts}>
+                Qayta urinish
+              </Button>
+            }
+          />
         )}
-      </div>
 
-      {/* Modal */}
-      {showModal && (
-        <div className="modal-overlay" onClick={closeModal}>
-          <div className="modal" onClick={(e) => e.stopPropagation()}>
-            <div className="modal-header">
-              <h2>
-                {editingProduct ? '✏️ Mahsulotni tahrirlash' : '➕ Yangi mahsulot'}
-              </h2>
-              <button onClick={closeModal} className="modal-close-btn">✕</button>
-            </div>
-
-            <form onSubmit={handleSubmit} className="modal-form">
-              <div className="form-group">
-                <label htmlFor="title">Mahsulot nomi *</label>
-                <input
-                  id="title"
-                  type="text"
-                  value={formData.title}
-                  onChange={(e) => setFormData({ ...formData, title: e.target.value })}
-                  required
-                  placeholder="Masalan: Olma"
-                  className="form-input"
-                />
-              </div>
-
-              <div className="form-group">
-                <label htmlFor="description">Tavsif</label>
-                <textarea
-                  id="description"
-                  value={formData.description}
-                  onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                  placeholder="Mahsulot haqida qisqacha ma'lumot"
-                  rows={4}
-                  className="form-textarea"
-                />
-              </div>
-
-              <div className="form-row">
-                <div className="form-group">
-                  <label htmlFor="price">Narxi (so'm) *</label>
-                  <input
-                    id="price"
-                    type="number"
-                    value={formData.price}
-                    onChange={(e) => setFormData({ ...formData, price: Number(e.target.value) })}
-                    required
-                    min="0"
-                    placeholder="0"
-                    className="form-input"
+        {products.length === 0 ? (
+          <Empty
+            description="Mahsulot topilmadi"
+            style={{ 
+              background: 'white', 
+              padding: 48, 
+              borderRadius: 8,
+              boxShadow: '0 1px 3px rgba(0,0,0,0.1)'
+            }}
+          >
+            <Button type="primary" icon={<PlusOutlined />} onClick={openCreateModal}>
+              Mahsulot qo'shish
+            </Button>
+          </Empty>
+        ) : (
+          <List
+            dataSource={products}
+            renderItem={(product) => (
+              <List.Item
+                style={{
+                  background: 'white',
+                  marginBottom: 8,
+                  padding: '16px',
+                  borderRadius: 8,
+                  boxShadow: '0 1px 3px rgba(0,0,0,0.1)',
+                }}
+                actions={[
+                  <Button
+                    key="edit"
+                    type="text"
+                    icon={<EditOutlined />}
+                    onClick={() => openEditModal(product)}
+                  />,
+                  <Button
+                    key="delete"
+                    type="text"
+                    danger
+                    icon={<DeleteOutlined />}
+                    onClick={() => handleDelete(product.id, product.title)}
                   />
-                </div>
-
-                <div className="form-group">
-                  <label htmlFor="stock">Omborda (dona)</label>
-                  <input
-                    id="stock"
-                    type="number"
-                    value={formData.stock}
-                    onChange={(e) => setFormData({ ...formData, stock: Number(e.target.value) })}
-                    min="0"
-                    placeholder="0"
-                    className="form-input"
-                  />
-                </div>
-              </div>
-
-              <div className="form-group">
-                <label htmlFor="category">Kategoriya</label>
-                <input
-                  id="category"
-                  type="text"
-                  value={formData.category}
-                  onChange={(e) => setFormData({ ...formData, category: e.target.value })}
-                  placeholder="Masalan: meva, sabzavot"
-                  className="form-input"
+                ]}
+              >
+                <List.Item.Meta
+                  title={<Text strong>{product.title}</Text>}
+                  description={
+                    <Space direction="vertical" size={4} style={{ width: '100%' }}>
+                      {product.description && (
+                        <Text type="secondary" ellipsis>
+                          {product.description}
+                        </Text>
+                      )}
+                      <Space wrap>
+                        {product.category && (
+                          <Tag color="blue">{product.category}</Tag>
+                        )}
+                        <Tag>{formatPrice(product.price)}</Tag>
+                        {product.stock !== undefined && (
+                          <Tag color={product.stock > 0 ? 'success' : 'error'}>
+                            {product.stock > 0 ? `${product.stock} ta` : 'Tugagan'}
+                          </Tag>
+                        )}
+                      </Space>
+                    </Space>
+                  }
                 />
-              </div>
+              </List.Item>
+            )}
+          />
+        )}
 
-              <div className="modal-actions">
-                <button type="button" onClick={closeModal} className="cancel-btn">
+    
+        <Modal
+          title={editingProduct ? 'Mahsulotni tahrirlash' : 'Yangi mahsulot'}
+          open={showModal}
+          onCancel={closeModal}
+          footer={null}
+          width={500}
+        >
+          <Form
+            form={form}
+            layout="vertical"
+            onFinish={handleSubmit}
+            initialValues={{
+              title: '',
+              description: '',
+              price: 0,
+              category: '',
+              stock: 0,
+            }}
+          >
+            <Form.Item
+              name="title"
+              label="Mahsulot nomi"
+              rules={[{ required: true, message: 'Mahsulot nomini kiriting!' }]}
+            >
+              <Input placeholder="Masalan: Olma" />
+            </Form.Item>
+
+            <Form.Item name="description" label="Tavsif">
+              <Input.TextArea
+                rows={3}
+                placeholder="Mahsulot haqida qisqacha ma'lumot"
+              />
+            </Form.Item>
+
+            <Space style={{ width: '100%' }} size="middle">
+              <Form.Item
+                name="price"
+                label="Narxi (so'm)"
+                rules={[{ required: true, message: 'Narxni kiriting!' }]}
+                style={{ flex: 1, marginBottom: 0 }}
+              >
+                <InputNumber
+                  style={{ width: '100%' }}
+                  min={0}
+                  placeholder="0"
+                />
+              </Form.Item>
+
+            </Space>
+
+            <Form.Item name="category" label="Kategoriya" style={{ marginTop: 16 }}>
+              <Input placeholder="Masalan: meva, sabzavot" />
+            </Form.Item>
+
+            <Form.Item style={{ marginBottom: 0, marginTop: 24 }}>
+              <Space style={{ width: '100%', justifyContent: 'flex-end' }}>
+                <Button onClick={closeModal}>
                   Bekor qilish
-                </button>
-                <button type="submit" className="submit-btn">
-                  {editingProduct ? '💾 Saqlash' : '➕ Qo\'shish'}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-    </div>
+                </Button>
+                <Button type="primary" htmlType="submit">
+                  {editingProduct ? 'Saqlash' : 'Qo\'shish'}
+                </Button>
+              </Space>
+            </Form.Item>
+          </Form>
+        </Modal>
+      </Content>
+    </Layout>
   )
 }
 
